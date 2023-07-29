@@ -1,3 +1,4 @@
+module Pcre = Re.Pcre
 module Hooks = Liquidsoap_lang.Hooks
 module Lang = Liquidsoap_lang.Lang
 
@@ -8,34 +9,34 @@ let cflags_of_flags (flags : Liquidsoap_lang.Regexp.flag list) =
         | `i -> `CASELESS :: l
         (* `g is handled at the call level. *)
         | `g -> l
-        | `s -> `DOTALL :: l
+        (* `DOTALL is not supported by re. *)
+        | `s -> l
         | `m -> `MULTILINE :: l)
     [] flags
 
 let regexp ?(flags = []) s =
-  let iflags = Pcre.cflags (cflags_of_flags flags) in
-  let rex = Pcre.regexp ~iflags s in
+  let flags = cflags_of_flags flags in
+  let rex = Pcre.regexp ~flags s in
   object
     method split s = Pcre.split ~rex s
 
     method exec s =
       let sub = Pcre.exec ~rex s in
-      let matches = Array.to_list (Pcre.get_opt_substrings sub) in
-      let groups =
-        List.fold_left
-          (fun groups name ->
-            try (name, Pcre.get_named_substring rex name sub) :: groups
-            with _ -> groups)
-          []
-          (Array.to_list (Pcre.names rex))
+      let matches =
+        Array.to_list
+        @@ Array.init (Re.Group.nb_groups sub + 1) (Re.Group.get_opt sub)
       in
+      let groups = [] in
       { Lang.Regexp.matches; groups }
 
     method test s = Pcre.pmatch ~rex s
 
     method substitute ~subst s =
+      let substitute_first ~rex ~subst s =
+        Re.replace ~all:false rex ~f:(fun g -> subst (Re.Group.get g 0)) s
+      in
       let substitute =
-        if List.mem `g flags then Pcre.substitute else Pcre.substitute_first
+        if List.mem `g flags then Pcre.substitute else substitute_first
       in
       substitute ~rex ~subst s
   end

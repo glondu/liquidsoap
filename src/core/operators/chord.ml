@@ -22,6 +22,7 @@
 
 open Mm
 open Source
+module Pcre = Re.Pcre
 
 let chan = 0
 
@@ -69,7 +70,9 @@ class chord metadata_name (source : source) =
               (fun c ->
                 try
                   let sub =
-                    Pcre.exec ~pat:"^([A-G-](?:b|#)?)(|M|m|M7|m7|dim)$" c
+                    Pcre.exec
+                      ~rex:(Pcre.regexp "^([A-G-](?:b|#)?)(|M|m|M7|m7|dim)$")
+                      c
                   in
                   let n = Pcre.get_substring sub 1 in
                   let n = note_of_string n in
